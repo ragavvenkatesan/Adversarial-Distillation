@@ -66,7 +66,7 @@ class xor_data_generator(object):
         self.dimensions = 2
         self.positive_means = [[-1,-1],[1,1]]
         self.negative_means = [[-1,1],[1,-1]]
-        self.covariance = [[0.01, 0.0], [0.0, 0.01]]
+        self.covariance = [[0.1, 0.0], [0.0, 0.1]]
 
     def query_data(self, **kwargs):
         """

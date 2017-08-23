@@ -12,7 +12,10 @@ class trainer(object):
     Args:
         network: A network class object
         dataset: A tensorflow dataset object
+        session: Supply a session to run on, if nothing is provided,
+            a new session will be opened. 
         tensorboard: Name for the tensorboard.
+        init_vars: if ``True`` will initialize all global variables.
 
     Class Properties:
         These are variables of the class that are available outside. 
@@ -23,14 +26,21 @@ class trainer(object):
         *   ``tensorboard``: Is a summary writer tool. 
         
     """
-    def __init__ (self, network, dataset, tensorboard = 'tensorboard'):
+    def __init__(   self, network, dataset,
+                    session = None,
+                    init_vars = True,
+                    tensorboard = 'tensorboard'):
         """
         Class constructor
         """
         self.network = network
         self.dataset = dataset 
-        self.session = tf.InteractiveSession(config=config)        
-        tf.global_variables_initializer().run()
+        if session is None:
+            self.session = tf.InteractiveSession(config=config)        
+        else:
+            self.session = session
+        if init_vars is True:
+            tf.global_variables_initializer().run()
         self.summaries(name = tensorboard)
 
     def bp_step(self, mini_batch_size):
@@ -162,12 +172,22 @@ class trainer(object):
         
         self.tensorboard.close()
 
+    def close(self):
+        """
+        Closes the session with which we initialized the trainer.
+        """
+        self.session.close()
+
 class poly_trainer(trainer):
     """
     Trainer for multiple networks trained simultaneously
 
     Args:
         nets: A List of networks.
+        dataset: A tensorflow dataset object        
+        session: Supply a session to run on, if nothing is provided,
+            a new session will be opened. 
+        init_vars: if ``True`` will initialize all global variables.            
 
     Notes:
         * This trainer is inherited from the :class:`tools.trainer.trainer`. 
@@ -177,14 +197,19 @@ class poly_trainer(trainer):
     Todo:
         Have the :math:`k` option available like in GANs.        
     """
-    def __init__ (self, nets, dataset, tensorboard = 'tensorboard'):
+    def __init__ (self, nets, dataset, session = None, 
+                    init_vars = False, tensorboard = 'tensorboard'):
         """
         Class constructor
         """
         self.nets = nets
         self.dataset = dataset 
-        self.session = tf.InteractiveSession()        
-        tf.global_variables_initializer().run()
+        if session is None:
+            self.session = tf.InteractiveSession()        
+        else:
+            self.session = session
+        if init_vars is True:
+            tf.global_variables_initializer().run()
         self.summaries(name = tensorboard)    
 
     def bp_step(self, mini_batch_size, ind):
@@ -331,7 +356,7 @@ class poly_trainer(trainer):
         self._inference_print()
         obj = [0] * len(self.nets)
         cost = [0] * len(self.nets)
-
+    
         for it in range(iter):
             obj[1] = self.bp_step(mini_batch_size, 1)  # Update Judge                        
             if it % k == 0:                
@@ -356,6 +381,5 @@ class poly_trainer(trainer):
         acc = self.test(ind = 0)
         print ("Final Test Accuracy: " + str(acc))    
         self.tensorboard.close()
-
 if __name__ == '__main__':
     pass

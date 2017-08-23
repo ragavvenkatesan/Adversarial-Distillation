@@ -15,14 +15,14 @@ TRAIN_SET_SIZE = 10000
 TEST_SET_SIZE = 10000
 
 # Optimizer properties
-LR = 0.01   # Learning rate 
+LR = 0.1   # Learning rate 
 OPTIMIZER = 'sgd' # Optimizer (options include 'adam', 'rmsprop') Easy to upgrade if needed.
 
 # Train options
 MINI_BATCH_SIZE = 10 # Mini batch size 
 UPDATE_AFTER_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  # Update after these many iterations.
 EXPERT_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 5 # Total number of iterations to run
-JUDGED_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 5 # Total number of iterations to run
+JUDGED_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 30 # Total number of iterations to run
 K = 1 # After how many iterations of judge should you update novice.
 
 if __name__ == '__main__':
