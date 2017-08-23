@@ -1,6 +1,7 @@
 docs-defunct
 src/xor_experiment/expert
 src/xor_experiment/judged
+src/xor_experiment/_experimental.py
 src/lenet_experiment/expert
 src/lenet_experiment/judged
 src/lenet_experiment/data
