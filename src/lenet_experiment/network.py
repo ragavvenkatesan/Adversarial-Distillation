@@ -298,8 +298,8 @@ class novice(object):
                 self.judgement = judgement
                 with tf.variable_scope( self.name + '_fooler') as scope:
                     # Use the LS GAN technique. 
-                    j_loss = 0.5 * tf.reduce_mean((judgement - 1)**2)
-                    # j_loss = -0.5 * tf.reduce_mean(log(judgement))
+                    # j_loss = 0.5 * tf.reduce_mean((judgement - 1)**2)
+                    j_loss = -0.5 * tf.reduce_mean(log(judgement))
                 tf.add_to_collection( self.name + '_objectives', j_loss )                                                    
                 self.cost = self.cost + j_loss
                 tf.summary.scalar('judge_cost', j_loss)  
@@ -407,7 +407,8 @@ class judge(object):
             dropped_out = dropout_layer (   input = self.images,
                                             prob = self.dropout_prob,
                                             name = 'dropout_1')                                          
-
+            
+            
             par = None
             # Dot Product Layer 1
             if input_params is not None:
@@ -416,7 +417,7 @@ class judge(object):
                                                     neurons = JUDGE_D1,
                                                     params = par,
                                                     name = 'dot_1')
-            process_params(params, name = self.name)
+            # process_params(params, name = self.name)
 
             # Dropout Layer 2 
             fc1_out_dropout = dropout_layer ( input = fc1_out,
@@ -431,13 +432,13 @@ class judge(object):
                                                     neurons = JUDGE_D2,
                                                     params = par,
                                                     name = 'dot_2')
-            process_params(params, name = self.name)
+            # process_params(params, name = self.name)
 
             # Dropout Layer 3 
             fc2_out_dropout = dropout_layer ( input = fc2_out,
                                             prob = self.dropout_prob,
                                             name = 'dropout_3')
-
+                                        
             # Embedding layers
             expert_embed, params = dot_product_layer (input = expert,   
                                               neurons = EMBED,
@@ -449,6 +450,10 @@ class judge(object):
             process_params ( params, name = self.name )
             
             #Judgement Layers
+            # expert_embed = expert
+            # novice_embed = novice
+            # fc2_out_dropout = self.images
+
             merged_expert = tf.concat([expert_embed, fc2_out_dropout], 1)
             merged_novice = tf.concat([novice_embed, fc2_out_dropout], 1)            
 
@@ -519,10 +524,10 @@ class judge(object):
             name: Training block name scope 
         """    
         with tf.variable_scope( self.name + '_objective') as scope:
-            self.cost = 0.5 * tf.reduce_mean((self.judgement_expert - 1 )**2) +\
-                                0.5 *  tf.reduce_mean(self.judgement_novice**2)            
-            # self.cost = -0.5 * tf.reduce_mean(log(self.judgement_expert)) - \
-            #              0.5 * tf.reduce_mean(log(1 - self.judgement_novice))
+            # self.cost = 0.5 * tf.reduce_mean((self.judgement_expert - 1 )**2) +\
+            #                    0.5 *  tf.reduce_mean(self.judgement_novice**2)            
+            self.cost = -0.5 * tf.reduce_mean(log(self.judgement_expert)) - \
+                          0.5 * tf.reduce_mean(log(1 - self.judgement_novice))
             tf.add_to_collection( self.name + '_objectives', self.cost )                                                    
             tf.summary.scalar('cost', self.cost)
             apply_regularizer (name = self.name, var_list = tf.get_collection(

@@ -22,26 +22,28 @@ MERGED_D1 = 800
 MERGED_D2 = 800
 
 
-TEMPERATURE = 3.0 
+TEMPERATURE = 1.0 
 
 # Optimizer properties
-LR = 1e-4   # Learning rate 
-WEIGHT_DECAY_COEFF = 0.0001 # Co-Efficient for weight decay
-L1_COEFF = 0.0001 # Co-Efficient for L1 Norm
+LR = 1e-3   # Learning rate 
+WEIGHT_DECAY_COEFF = 0.00001 # Co-Efficient for weight decay
+L1_COEFF = 0.00001 # Co-Efficient for L1 Norm
 MOMENTUM = 0.7 # Momentum rate 
-OPTIMIZER = 'adam' # Optimizer (options include 'adam', 'rmsprop') Easy to upgrade if needed.
-DROPOUT_PROBABILITY   = 0.5
+OPTIMIZER = 'rmsprop' # Optimizer (options include 'adam', 'rmsprop') Easy to upgrade if needed.
+DROPOUT_PROBABILITY   = 1.0
 
 # Dataset sizes
 TRAIN_SET_SIZE = 50000
 TEST_SET_SIZE = 10000
 
 # Train options
+DECAY = 0.95
 MINI_BATCH_SIZE = 500 # Mini batch size 
 UPDATE_AFTER_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE ) # Update after these many iterations.
 EXPERT_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 30 # Total number of iterations to run
 JUDGED_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 100 # Total number of iterations to run
 
+# Higher the values, less frequent the updates.
 K = 1 # After how many iterations of judge should you update novice.
 R = 1 # After how many iterations of novice should you update judge.
 
