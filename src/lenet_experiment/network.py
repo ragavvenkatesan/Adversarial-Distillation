@@ -1,135 +1,12 @@
 import tensorflow as tf
 import numpy as np
-
-from globals import *
-
 import sys 
 sys.path.append('../')
 
 from tools.layers import *
-from tools.support import visualize_images
-
-def apply_gradient_descent(var_list, obj):
-    """
-    Sets up the gradient descent optimizer
-
-    Args:
-        var_list: List of variables to optimizer over.        
-        obj: Node of the objective to minimize
-    Notes:
-        learning_rate: What learning rate to run with. (Default = ``0.01``) Set with ``LR``
-    """
-    back_prop = tf.train.GradientDescentOptimizer(
-                                            learning_rate = LR,
-                                            name = 'gradient_descent' ).minimize(loss = obj, \
-                                                    var_list = var_list ) 
-    return back_prop
-
-def apply_adam (var_list, obj, learning_rate = 1e-4):
-    """
-    Sets up the ADAM optmiizer
-
-    Args:
-        var_list: List of variables to optimizer over.
-        obj: Node of the objective to minimize        
-    
-    Notes:
-        learning_rate: What learning rate to run with. (Default = ``0.01``) Set with ``LR``
-    """      
-    back_prop = tf.train.AdamOptimizer(
-                                        learning_rate = LR,
-                                        name = 'adam' ).minimize(loss = obj, \
-                                            var_list = var_list) 
-    return back_prop                                                               
-
-def apply_rmsprop( var_list, obj ):
-    """
-    Sets up the RMS Prop optimizer
-
-    Args:
-        var_list: List of variables to optimizer over.
-        obj: Node of the objective to minimize        
-
-    Notes:
-        * learning_rate: What learning rate to run with. (Default = ``0.001``). Set  ``LR``
-        * momentum: What is the weight for momentum to run with. (Default = ``0.7``). Set ``MOMENTUM``
-        * decay: What rate should learning rate decay. (Default = ``0.95``). Set ``DECAY``            
-    """    
-    back_prop = tf.train.RMSPropOptimizer(
-                                        learning_rate = LR,
-                                        decay = DECAY,
-                                        momentum = MOMENTUM,
-                                        name = 'rmsprop' ).minimize(loss = obj, \
-                                        var_list = var_list) 
-    return back_prop
-
-def apply_weight_decay (var_list, name = 'weight_decay'):
-    """
-    This method applys L2 Regularization to all weights and adds it to the ``objectives`` 
-    collection. 
-    
-    Args:
-        name: For the tensorflow scope.
-        var_list: List of variables to apply.
-    
-    Notes:
-        What is the co-efficient of the L2 weight? Set ``WEIGHT_DECAY_COEFF``.( Default = 0.0001 )
-    """                              
-    for param in var_list:
-        norm = WEIGHT_DECAY_COEFF * tf.nn.l2_loss(param)
-        tf.summary.scalar('l2_' + param.name, norm)                  
-        tf.add_to_collection(name + '_objectives', norm)
-
-def apply_l1 ( var_list, name = 'l1'):
-    """
-    This method applys L1 Regularization to all weights and adds it to the ``objectives`` 
-    collection. 
-    
-    Args:
-        var_list: List of variables to apply l1
-        name: For the tensorflow scope.
-    
-    Notes:
-        What is the co-efficient of the L1 weight? Set ``L1_COEFF``.( Default = 0.0001 )
-    """                              
-    for param in var_list:
-        norm = L1_COEFF * tf.reduce_sum(tf.abs(param, name = 'abs'), name = 'l1')
-        tf.summary.scalar('l1_' + param.name, norm)                  
-        tf.add_to_collection(name + '_objectives', norm)
-
-def process_params(params, name):
-    """
-    This method adds the params to two collections.
-    The first element is added to ``regularizer_worthy_params``.
-    The first and second elements are is added to ``trainable_parmas``.
-
-    Args:
-        params: List of two.
-        name: For the scope
-    """
-    tf.add_to_collection(name + '_trainable_params', params[0])
-    tf.add_to_collection(name + '_trainable_params', params[1])         
-    tf.add_to_collection(name + '_regularizer_worthy_params', params[0]) 
-
-def apply_regularizer (name, var_list):
-    """
-    This method applys Regularization to all weights and adds it to the ``objectives`` 
-    collection. 
-    
-    Args:
-        var_list: List of variables to apply l1
-        name: For the tensorflow scope.
-    
-    Notes:
-        What is the co-efficient of the L1 weight? Set ``L1_COEFF``.( Default = 0.0001 )
-    """       
-    with tf.variable_scope(name + '_weight-decay') as scope:
-        if WEIGHT_DECAY_COEFF > 0:
-            apply_weight_decay(name = name + 'weight_decay', var_list = var_list )
-
-    with tf.variable_scope(name + '_l1-regularization') as scope:
-        if L1_COEFF > 0:
-            apply_l1(name =name + '_weight_decay',  var_list = var_list)
+from tools.support import visualize_images, log
+from tools.optimizer import *
+from globals import *
 
 
 class expert(object):
@@ -244,6 +121,10 @@ class expert(object):
             self.inference, self.predictions = softmax_layer (  input = self.logits,
                                                                 name = 'softmax_layer' )                                                    
 
+            # Temperature Softmax layer
+            self.temperature_softmax, _ = softmax_layer ( input = self.logits, 
+                                                          temperature = TEMPERATURE,
+                                                          name = 'temperature_softmax_layer' )
                 
     def cook(self, labels, name ='train'):
         """
@@ -256,14 +137,13 @@ class expert(object):
         with tf.variable_scope( self.name + '_objective') as scope:
             self.labels = labels
             with tf.variable_scope( self.name + '_cross-entropy') as scope:
-                loss = tf.reduce_mean(
+                self.cost = tf.reduce_mean(
                             tf.nn.softmax_cross_entropy_with_logits ( 
                                                      labels = self.labels,
                                                      logits = self.logits)
                                                 )
-                self.cost = loss
-                tf.add_to_collection( self.name + '_objectives', loss ) 
-                tf.summary.scalar('cost', loss)  
+                tf.add_to_collection( self.name + '_objectives', self.cost ) 
+                tf.summary.scalar('cost', self.cost)  
 
             apply_regularizer (name = self.name, var_list = tf.get_collection(
                                                     self.name + '_regularizer_worthy_params') )
@@ -381,7 +261,11 @@ class novice(object):
 
             # Softmax layer
             self.inference, self.predictions = softmax_layer (  input = self.logits,
-                                                                name = 'softmax_layer' )                                                    
+                                                                name = 'softmax_layer' )  
+            # Temperature Softmax layer
+            self.temperature_softmax, _ = softmax_layer ( input = self.logits, 
+                                                          temperature = TEMPERATURE,
+                                                          name = 'temperature_softmax_layer' )                                                                                                                  
 
             self.params = [d1_params, d2_params]
 
@@ -414,8 +298,8 @@ class novice(object):
                 self.judgement = judgement
                 with tf.variable_scope( self.name + '_fooler') as scope:
                     # Use the LS GAN technique. 
-                    j_loss = tf.reduce_mean((1 - judgement)**2)
-                    # j_loss = tf.reduce_mean(tf.log(1-judgement))
+                    j_loss = 0.5 * tf.reduce_mean((judgement - 1)**2)
+                    # j_loss = -0.5 * tf.reduce_mean(log(judgement))
                 tf.add_to_collection( self.name + '_objectives', j_loss )                                                    
                 self.cost = self.cost + j_loss
                 tf.summary.scalar('judge_cost', j_loss)  
@@ -590,13 +474,37 @@ class judge(object):
                                             name = 'merged_novice_d1')
             process_params(params, name = self.name)
 
+
+            # Merged Expert Dropout Layer 2 
+            merged_expert_dropout_2 = dropout_layer ( input = merged_expert_fc1_out,
+                                            prob = self.dropout_prob,
+                                            name = 'merged_expert_dropout_2')
+            # Merged Novice Dropout Layer 2 
+            merged_novice_dropout_2 = dropout_layer ( input = merged_novice_fc1_out,
+                                            prob = self.dropout_prob,
+                                            name = 'merged_novice_dropout_2')
+
+            # Merged Expert Dot Product Layer 2
+            merged_expert_fc2_out, params = dot_product_layer  (  
+                                            input = merged_expert_dropout_2, 
+                                            neurons = MERGED_D2,
+                                            name = 'merged_expert_d2')
+            # Merged Novice Dot Product Layer 2
+            merged_novice_fc2_out, params = dot_product_layer  (  
+                                            input = merged_novice_dropout_2, 
+                                            params = params,
+                                            neurons = MERGED_D2,
+                                            name = 'merged_novice_d2')
+            process_params(params, name = self.name)
+
+
             self.judgement_expert, params = dot_product_layer  ( 
-                                                input = merged_expert_fc1_out,
+                                                input = merged_expert_fc2_out,
                                                 neurons = 1,
                                                 activation = 'sigmoid',
                                                 name = 'expert_probability')
             self.judgement_novice, params = dot_product_layer  ( 
-                                                input = merged_novice_fc1_out,
+                                                input = merged_novice_fc2_out,
                                                 neurons = 1,
                                                 params = params,
                                                 activation = 'sigmoid',
@@ -611,10 +519,10 @@ class judge(object):
             name: Training block name scope 
         """    
         with tf.variable_scope( self.name + '_objective') as scope:
-            self.cost = tf.reduce_mean((1 - self.judgement_expert)**2) +\
-                                 tf.reduce_mean(self.judgement_novice**2)            
-            # self.cost = tf.reduce_mean(tf.log(1 - self.judgement_expert)) + \
-            #            tf.reduce_mean(tf.log(self.judgement_novice))
+            self.cost = 0.5 * tf.reduce_mean((self.judgement_expert - 1 )**2) +\
+                                0.5 *  tf.reduce_mean(self.judgement_novice**2)            
+            # self.cost = -0.5 * tf.reduce_mean(log(self.judgement_expert)) - \
+            #              0.5 * tf.reduce_mean(log(1 - self.judgement_novice))
             tf.add_to_collection( self.name + '_objectives', self.cost )                                                    
             tf.summary.scalar('cost', self.cost)
             apply_regularizer (name = self.name, var_list = tf.get_collection(

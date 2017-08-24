@@ -17,16 +17,33 @@ NOVICE_D2 = 800    # Number of neurons in second dot-product layer
 JUDGE_D1 = 800
 JUDGE_D2 = 800
 EMBED = 100
-MERGED_D1 = 900
+
+MERGED_D1 = 800
+MERGED_D2 = 800
+
+
+TEMPERATURE = 3.0 
 
 # Optimizer properties
-LR = 0.01   # Learning rate 
-WEIGHT_DECAY_COEFF = 0.0000 # Co-Efficient for weight decay
-L1_COEFF = 0.0000 # Co-Efficient for L1 Norm
+LR = 1e-4   # Learning rate 
+WEIGHT_DECAY_COEFF = 0.0001 # Co-Efficient for weight decay
+L1_COEFF = 0.0001 # Co-Efficient for L1 Norm
 MOMENTUM = 0.7 # Momentum rate 
-OPTIMIZER = 'sgd' # Optimizer (options include 'adam', 'rmsprop') Easy to upgrade if needed.
-MINI_BATCH_SIZE = 500 # Mini batch size 
+OPTIMIZER = 'adam' # Optimizer (options include 'adam', 'rmsprop') Easy to upgrade if needed.
+DROPOUT_PROBABILITY   = 0.5
 
+# Dataset sizes
+TRAIN_SET_SIZE = 50000
+TEST_SET_SIZE = 10000
+
+# Train options
+MINI_BATCH_SIZE = 500 # Mini batch size 
+UPDATE_AFTER_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE ) # Update after these many iterations.
+EXPERT_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 30 # Total number of iterations to run
+JUDGED_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 100 # Total number of iterations to run
+
+K = 1 # After how many iterations of judge should you update novice.
+R = 1 # After how many iterations of novice should you update judge.
 
 if __name__ == '__main__':
     pass

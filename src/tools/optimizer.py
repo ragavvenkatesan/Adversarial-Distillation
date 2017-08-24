@@ -1,4 +1,5 @@
-import tensorflow as tf 
+import tensorflow as tf
+from globals import *
 
 def apply_gradient_descent(var_list, obj, learning_rate = 0.01):
     """

@@ -1,5 +1,5 @@
 import tensorflow as tf
-DROPOUT_PROBABILITY   = 1.0
+from globals import DROPOUT_PROBABILITY
 
 config = tf.ConfigProto(
         device_count = {'GPU': 2}
@@ -335,6 +335,7 @@ class poly_trainer(trainer):
 
     def train ( self, 
                 k = 1,
+                r = 1,
                 iter= 10000, 
                 mini_batch_size = 500, 
                 update_after_iter = 1000, 
@@ -358,11 +359,13 @@ class poly_trainer(trainer):
         cost = [0] * len(self.nets)
     
         for it in range(iter):
-            obj[1] = self.bp_step(mini_batch_size, 1)  # Update Judge                        
+            if it % r == 0:                            
+                obj[1] = self.bp_step(mini_batch_size, 1)  # Update Judge                        
             if it % k == 0:                
                 obj[0] = self.bp_step(mini_batch_size, 0)  # Update Novice                             
                 
-                
+            # import pdb
+            # pdb.set_trace()
             if it % update_after_iter == 0:   
                 train_acc = self.training_accuracy(mini_batch_size = mini_batch_size,
                                                     ind = 0)

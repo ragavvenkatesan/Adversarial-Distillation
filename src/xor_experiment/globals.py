@@ -21,9 +21,11 @@ OPTIMIZER = 'sgd' # Optimizer (options include 'adam', 'rmsprop') Easy to upgrad
 # Train options
 MINI_BATCH_SIZE = 10 # Mini batch size 
 UPDATE_AFTER_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  # Update after these many iterations.
-EXPERT_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 5 # Total number of iterations to run
+EXPERT_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 15 # Total number of iterations to run
 JUDGED_ITER = (TRAIN_SET_SIZE / MINI_BATCH_SIZE )  * 30 # Total number of iterations to run
 K = 1 # After how many iterations of judge should you update novice.
+
+DROPOUT_PROBABILITY   = 1.0
 
 if __name__ == '__main__':
     pass
