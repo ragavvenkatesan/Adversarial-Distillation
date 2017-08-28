@@ -5,6 +5,19 @@ from third_party import put_kernels_on_grid
 def log(x):
     return tf.log(x + 1e-8)
 
+def rmse (a, b):
+    """
+    Returns the RMSE error between ``a`` and ``b``.
+
+    Args:
+        a: a tensor
+        b: another tensor
+
+    Returns:
+        tensor: RMSE error
+    """
+    return  tf.reduce_mean(tf.squared_difference(a, b))
+
 def initializer(shape, name = 'xavier'):
     """
     A method that returns random numbers for Xavier initialization.
@@ -82,6 +95,19 @@ def visualize_images (images, name = 'images', num_images = 6):
             visualize_filters(images, name)        
     """
     tf.summary.image(name, images, max_outputs = num_images)
+
+def visualize_1D_filters(filters, name ='dot_product_filters'):
+    """
+    This method will visualize dot_product layer filter weights. 
+    This will do so in a grid by transposing the weights.
+
+    Args:
+        tensorflow tensor: A 2D block in (in, out) format.
+    """    
+    filters = tf.transpose(filters)
+    dim = int( sqrt( filters.shape[1].value ) ) 
+    filters = tf.reshape(filters, [dim, dim, 1, -1])    
+    visualize_filters(filters, name = name)
 
 if __name__ == '__main__':
     pass      

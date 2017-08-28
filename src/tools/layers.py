@@ -37,12 +37,15 @@ def dot_product_layer(input, params = None, neurons = 1200, name = 'fc', activat
         tuple: The output node and A list of parameters that are learnanble
     """
     with tf.variable_scope(name) as scope:
-        if params is None:
+        if params is None or params[0] is None:
             weights = tf.Variable(initializer([input.shape[1].value,neurons], name = 'xavier_weights'),\
                                             name = 'weights')
-            bias = tf.Variable(initializer([neurons], name = 'xavier_bias'), name = 'bias')
         else:
             weights = params[0]
+        
+        if params is None or params[1] is None:    
+            bias = tf.Variable(initializer([neurons], name = 'xavier_bias'), name = 'bias')
+        else:
             bias = params[1]
 
         dot = tf.nn.bias_add(tf.matmul(input, weights, name = 'dot'), bias, name = 'pre-activation')

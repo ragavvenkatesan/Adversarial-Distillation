@@ -99,8 +99,11 @@ def process_params(params, name):
         params: List of two.
         name: For the scope
     """
-    tf.add_to_collection(name + '_trainable_params', params[0])
-    tf.add_to_collection(name + '_trainable_params', params[1])         
+    if len(params) == 2:
+        tf.add_to_collection(name + '_trainable_params', params[0])
+        tf.add_to_collection(name + '_trainable_params', params[1])         
+    else:
+        tf.add_to_collection(name + '_trainable_params', params[0])        
     tf.add_to_collection(name + '_regularizer_worthy_params', params[0]) 
 
 def apply_regularizer (name, var_list):

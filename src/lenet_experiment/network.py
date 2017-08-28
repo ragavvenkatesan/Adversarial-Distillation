@@ -4,7 +4,7 @@ import sys
 sys.path.append('../')
 
 from tools.layers import *
-from tools.support import visualize_images, log
+from tools.support import visualize_images, visualize_1D_filters, log, rmse
 from tools.optimizer import *
 from globals import *
 
@@ -187,6 +187,7 @@ class novice(object):
     Args:
         images: Placeholder for images
         name: Name of the network.
+        decoder: <bool> If decoder is ``True``, we also run a decoder as a regularizer
 
     Class Properties:
         These are variables of the class that are available outside. 
@@ -205,6 +206,7 @@ class novice(object):
     """
     def __init__ (  self,
                     images,
+                    decoder = False,
                     name = 'novice' ):
         """
         Class constructor. Creates the model and allthe connections. 
@@ -212,6 +214,7 @@ class novice(object):
         with tf.variable_scope(name) as scope:
             self.images = images
             self.name = name
+            self.decoder = decoder
 
             # Unflatten Layer
             images_square = unflatten_layer ( self.images )
@@ -229,28 +232,56 @@ class novice(object):
                                             prob = self.dropout_prob,
                                             name = 'dropout_1')                                          
 
-            # Dot Product Layer 1
-            fc1_out, params = dot_product_layer  (  input = dropped_out,
-                                                    neurons = NOVICE_D1,
-                                                    name = 'dot_1')
-            process_params(params, name = self.name)
-            d1_params = params
+            with tf.variable_scope(name + 'image_features') as scope:
 
-            # Dropout Layer 2 
-            fc1_out_dropout = dropout_layer ( input = fc1_out,
-                                            prob = self.dropout_prob,
-                                            name = 'dropout_2')
-            # Dot Product Layer 2
-            fc2_out, params = dot_product_layer  (  input = fc1_out_dropout, 
-                                                    neurons = NOVICE_D2,
-                                                    name = 'dot_2')
-            process_params(params, name = self.name)
-            d2_params = params 
+                # Dot Product Layer 1
+                fc1_out, params = dot_product_layer  (  input = dropped_out,
+                                                        neurons = NOVICE_D1,
+                                                        name = 'dot_1')
+                process_params(params, name = self.name)
+                d1_params = params
 
-            # Dropout Layer 3 
-            fc2_out_dropout = dropout_layer ( input = fc2_out,
-                                            prob = self.dropout_prob,
-                                            name = 'dropout_3')
+                # Unflatten Layer
+                visualize_1D_filters(d1_params[0])
+
+                # Dropout Layer 2 
+                fc1_out_dropout = dropout_layer ( input = fc1_out,
+                                                prob = self.dropout_prob,
+                                                name = 'dropout_2')
+                # Dot Product Layer 2
+                fc2_out, params = dot_product_layer  (  input = fc1_out_dropout, 
+                                                        neurons = NOVICE_D2,
+                                                        name = 'dot_2')
+                process_params(params, name = self.name)
+                d2_params = params 
+
+                # Dropout Layer 3 
+                fc2_out_dropout = dropout_layer ( input = fc2_out,
+                                                prob = self.dropout_prob,
+                                                name = 'dropout_3')
+
+            if self.decoder is True:
+                with tf.variable_scope(name + 'decoder') as scope:
+                
+                    decoder_1_out, params = dot_product_layer  (  input = fc2_out_dropout, 
+                                                            neurons = NOVICE_D1,
+                                                            params = [tf.transpose(d2_params[0]), None],
+                                                            name = 'decoder_dot_1')
+
+                    process_params([params[1]], name = self.name)
+                    dec_1_out_dropout = dropout_layer ( input = decoder_1_out,
+                                                    prob = self.dropout_prob,
+                                                    name = 'dropout_4')
+
+                    self.decoded, params = dot_product_layer  (  input = dec_1_out_dropout, 
+                                                            neurons = IMAGE_SHAPE,
+                                                            params = [tf.transpose(d1_params[0]), None],
+                                                            name = 'decoder_dot_2')
+                    process_params([params[1]], name = self.name)
+
+                    # Unflatten Layer
+                    decoded_images_square = unflatten_layer ( self.decoded )
+                    visualize_images(decoded_images_square, 'decoded')
 
             # Logits layer
             self.logits, params = dot_product_layer  (  input = fc2_out_dropout,
@@ -281,7 +312,6 @@ class novice(object):
             name: Training block name scope 
         """    
         with tf.variable_scope( self.name + '_objective') as scope:
-            self.cost = tf.constant(0., dtype = tf.float32)
             if labels is not None:
                 self.labels = labels                
                 with tf.variable_scope( self.name + '_cross-entropy') as scope:
@@ -291,9 +321,14 @@ class novice(object):
                                                         logits = self.logits)
                                                     )                                                
                 tf.add_to_collection( self.name + '_objectives', ce_loss )                                                    
-                self.cost = self.cost + ce_loss
                 tf.summary.scalar('cross_entropy_cost', ce_loss)  
             
+            if self.decoder is True:
+                with tf.variable_scope( self.name + '_decoder_error') as scope:
+                    decoder_loss =  rmse(self.images, self.decoded)                                         
+                tf.add_to_collection( self.name + '_objectives', decoder_loss )                                                    
+                tf.summary.scalar('cross_entropy_cost', decoder_loss)  
+
             if judgement is not None:
                 self.judgement = judgement
                 with tf.variable_scope( self.name + '_fooler') as scope:
@@ -301,10 +336,10 @@ class novice(object):
                     # j_loss = 0.5 * tf.reduce_mean((judgement - 1)**2)
                     j_loss = -0.5 * tf.reduce_mean(log(judgement))
                 tf.add_to_collection( self.name + '_objectives', j_loss )                                                    
-                self.cost = self.cost + j_loss
+                self.cost =  j_loss
                 tf.summary.scalar('judge_cost', j_loss)  
             
-            tf.summary.scalar('combined_cost', self.cost)
+                tf.summary.scalar('combined_cost', self.cost)
             apply_regularizer (name = self.name, var_list = tf.get_collection(
                                                     self.name + '_regularizer_worthy_params') )
             self.obj = tf.add_n(tf.get_collection( self.name + '_objectives'), name='objective')
@@ -408,36 +443,37 @@ class judge(object):
                                             prob = self.dropout_prob,
                                             name = 'dropout_1')                                          
             
+            with tf.variable_scope(name + 'image_features') as scope:
             
-            par = None
-            # Dot Product Layer 1
-            if input_params is not None:
-                par = input_params[0]
-            fc1_out, params = dot_product_layer  (  input = dropped_out,
-                                                    neurons = JUDGE_D1,
-                                                    params = par,
-                                                    name = 'dot_1')
-            # process_params(params, name = self.name)
+                par = None
+                # Dot Product Layer 1
+                if input_params is not None:
+                    par = input_params[0]
+                fc1_out, params = dot_product_layer  (  input = dropped_out,
+                                                        neurons = JUDGE_D1,
+                                                        params = par,
+                                                        name = 'dot_1')
+                # process_params(params, name = self.name)
 
-            # Dropout Layer 2 
-            fc1_out_dropout = dropout_layer ( input = fc1_out,
-                                            prob = self.dropout_prob,
-                                            name = 'dropout_2')
+                # Dropout Layer 2 
+                fc1_out_dropout = dropout_layer ( input = fc1_out,
+                                                prob = self.dropout_prob,
+                                                name = 'dropout_2')
 
-            if input_params is not None:
-                par = input_params[1] 
-                                          
-            # Dot Product Layer 2
-            fc2_out, params = dot_product_layer  (  input = fc1_out_dropout, 
-                                                    neurons = JUDGE_D2,
-                                                    params = par,
-                                                    name = 'dot_2')
-            # process_params(params, name = self.name)
+                if input_params is not None:
+                    par = input_params[1] 
+                                            
+                # Dot Product Layer 2
+                fc2_out, params = dot_product_layer  (  input = fc1_out_dropout, 
+                                                        neurons = JUDGE_D2,
+                                                        params = par,
+                                                        name = 'dot_2')
+                # process_params(params, name = self.name)
 
-            # Dropout Layer 3 
-            fc2_out_dropout = dropout_layer ( input = fc2_out,
-                                            prob = self.dropout_prob,
-                                            name = 'dropout_3')
+                # Dropout Layer 3 
+                fc2_out_dropout = dropout_layer ( input = fc2_out,
+                                                prob = self.dropout_prob,
+                                                name = 'dropout_3')
                                         
             # Embedding layers
             expert_embed, params = dot_product_layer (input = expert,   

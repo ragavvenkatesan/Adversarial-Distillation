@@ -27,6 +27,7 @@ def put_kernels_on_grid (kernel, pad = 1, name = 'visualizer'):
                 if n % i == 0:
                     if i == 1: print('Who would enter a prime number of filters')
                     return (i, int(n / i))
+
         (grid_Y, grid_X) = factorization (kernel.get_shape()[3].value)
 
         x_min = tf.reduce_min(kernel)

@@ -2,14 +2,15 @@ import sys
 sys.path.append('../')
 
 from tools.trainer import trainer, poly_trainer
-from tools.dataset import mnist
+from tools.dataset import mnist, fashion_mnist
 
 from network import expert, novice, judge     
 from globals import *
 
 
 if __name__ == '__main__':
-    dataset = mnist()
+    # dataset = mnist()
+    dataset = fashion_mnist()
 
     ################ Expert ################
     print (" \n\n Expert Assembly \n\n")
@@ -35,7 +36,8 @@ if __name__ == '__main__':
     ################ Adversarial Distillation ###########
     print (" \n\n Judged Novice Without Labels Assembly \n\n")
     novice_net = novice( images = dataset.images,
-                    name = 'novice_judged' )  
+                         decoder = True,
+                         name = 'novice_judged' )  
     judge_net = judge( images = dataset.images,
                        expert = expert_net.temperature_softmax,
                        novice = novice_net.temperature_softmax,
