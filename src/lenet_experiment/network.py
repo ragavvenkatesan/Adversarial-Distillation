@@ -120,7 +120,7 @@ class expert(object):
             # Softmax layer
             self.inference, self.predictions = softmax_layer (  input = self.logits,
                                                                 name = 'softmax_layer' )                                                    
-
+            
             # Temperature Softmax layer
             self.temperature_softmax, _ = softmax_layer ( input = self.logits, 
                                                           temperature = TEMPERATURE,
@@ -148,18 +148,20 @@ class expert(object):
             apply_regularizer (name = self.name, var_list = tf.get_collection(
                                                     self.name + '_regularizer_worthy_params') )
             self.obj = tf.add_n(tf.get_collection( self.name + '_objectives'), name='objective')
-    
+            tf.summary.scalar('obj', self.obj)  
+
+
         with tf.variable_scope(self.name + '_train') as scope:
             # Change (supply as arguments) parameters here directly in the code.
             if OPTIMIZER == 'sgd':                                                                              
                 self.back_prop = apply_gradient_descent(var_list = tf.get_collection(self.name + '_trainable_params'),
-                                        obj = self.obj )
+                                        obj = self.obj,  learning_rate = LR )
             elif OPTIMIZER == 'rmsprop':
                 self.back_prop = apply_rmsprop(var_list = tf.get_collection(self.name + '_trainable_params') ,
-                                        obj = self.obj)
+                                        obj = self.obj,  learning_rate = LR)
             elif OPTIMIZER == 'adam':
                 self.back_prop = apply_adam (var_list = tf.get_collection( self.name + '_trainable_params') ,
-                                        obj = self.obj )
+                                        obj = self.obj, learning_rate = LR )
             else:
                 raise Error('Invalid entry to optimizer')
 
@@ -176,6 +178,134 @@ class expert(object):
                 confusion_image = tf.reshape( tf.cast( confusion, tf.float32),[1, C, C, 1])
                 tf.summary.image('confusion',confusion_image)   
 
+class autoencoder(object):
+    """
+    Definition of the Autoencoder class of networks.
+    This network is used typically for initialization.
+
+    Args:
+        images: Placeholder for images
+        name: Name of the network.
+
+    Class Properties:
+        These are variables of the class that are available outside. 
+        
+        *   ``images``: This is the placeholder for images. This needs to be fed in.
+        *   ``dropout_prob``: This is also a placeholder for dropout probability. This needs to be fed in.    
+        *   ``back_prop``: Backprop is an optimizer. 
+        *   ``obj``: Is a cumulative objective tensor.
+        *   ``cost``: Cost of the back prop error alone.
+        *   ``decoded``: Output of the decoder node.
+        *   ``params`` : Parameters of the model.
+    """
+    def __init__ (  self,
+                    images,
+                    name = 'autoencoder' ):
+        """
+        Class constructor. Creates the model and all the connections. 
+        """
+        with tf.variable_scope(name) as scope:
+            self.images = images
+            self.name = name
+
+            # Unflatten Layer
+            images_square = unflatten_layer ( self.images )
+            visualize_images(images_square)
+
+            # Placeholder probability for dropouts.
+            #self.dropout_prob = tf.placeholder(tf.float32,
+            self.dropout_prob = tf.placeholder_with_default(
+                                                input = tf.constant(1.0, dtype = tf.float32),
+                                                shape = None,
+                                                name = 'dropout_probability')   
+
+            # Dropout Layer 1 
+            dropped_out = dropout_layer ( input = self.images,
+                                            prob = self.dropout_prob,
+                                            name = 'dropout_1')                                          
+
+
+            # Dot Product Layer 1
+            fc1_out, params = dot_product_layer  (  input = dropped_out,
+                                                    neurons = NOVICE_D1,
+                                                    name = 'dot_1')
+            process_params(params, name = self.name)
+            d1_params = params
+
+            # Unflatten Layer
+            visualize_1D_filters(d1_params[0])
+
+            # Dropout Layer 2 
+            fc1_out_dropout = dropout_layer ( input = fc1_out,
+                                            prob = self.dropout_prob,
+                                            name = 'dropout_2')
+            # Dot Product Layer 2
+            codeword, params = dot_product_layer  (  input = fc1_out_dropout, 
+                                                    neurons = NOVICE_D2,
+                                                    name = 'dot_2')
+            process_params(params, name = self.name)
+            d2_params = params 
+
+            # Dropout Layer 3 
+            codeword_dropout = dropout_layer ( input = codeword,
+                                            prob = self.dropout_prob,
+                                            name = 'dropout_3')
+
+        
+            decoder_1_out, params = dot_product_layer  (  input = codeword_dropout, 
+                                                    neurons = NOVICE_D1,
+                                                    params = [tf.transpose(d2_params[0]), None],
+                                                    name = 'decoder_dot_1')
+
+            process_params([params[1]], name = self.name)
+            dec_1_out_dropout = dropout_layer ( input = decoder_1_out,
+                                            prob = self.dropout_prob,
+                                            name = 'dropout_4')
+
+            self.decoded, params = dot_product_layer  (  input = dec_1_out_dropout, 
+                                                    neurons = IMAGE_SHAPE,
+                                                    params = [tf.transpose(d1_params[0]), None],
+                                                    name = 'decoder_dot_2')
+            process_params([params[1]], name = self.name)
+
+            # Unflatten Layer
+            decoded_images_square = unflatten_layer ( self.decoded )
+            visualize_images(decoded_images_square)
+
+            self.params = [d1_params, d2_params]
+
+    def cook(self, labels, name ='train'):
+        """
+        Prepares the network for training
+
+        Args:
+            name: Training block name scope 
+        """    
+        self.labels = labels
+        with tf.variable_scope( self.name + '_objective') as scope:
+            with tf.variable_scope( self.name + '_decoder_error') as scope:
+                self.cost =  rmse(self.images, self.decoded)                                         
+                tf.add_to_collection( self.name + '_objectives', self.cost )                                                    
+                tf.summary.scalar('combined_cost', self.cost)
+            apply_regularizer (name = self.name, var_list = tf.get_collection(
+                                                    self.name + '_regularizer_worthy_params') )
+            self.obj = tf.add_n(tf.get_collection( self.name + '_objectives'), name='objective')
+            tf.summary.scalar('total_objective', self.obj)
+
+        with tf.variable_scope(self.name + '_train') as scope:
+            # Change (supply as arguments) parameters here directly in the code.
+            if OPTIMIZER == 'sgd':                                                                              
+                self.back_prop = apply_gradient_descent(var_list = tf.get_collection(self.name + '_trainable_params'),
+                                        obj = self.obj,  learning_rate = LR )
+            elif OPTIMIZER == 'rmsprop':
+                self.back_prop = apply_rmsprop(var_list = tf.get_collection(self.name + '_trainable_params') ,
+                                        obj = self.obj,  learning_rate = LR)
+            elif OPTIMIZER == 'adam':
+                self.back_prop = apply_adam (var_list = tf.get_collection( self.name + '_trainable_params') ,
+                                        obj = self.obj,  learning_rate = LR )
+            else:
+                raise Error('Invalid entry to optimizer')
+
 class novice(object):
     """
     Definition of the Novice class of networks.
@@ -188,12 +318,14 @@ class novice(object):
         images: Placeholder for images
         name: Name of the network.
         decoder: <bool> If decoder is ``True``, we also run a decoder as a regularizer
+        input_params: Default is ``None``, if supplied will initialize with those parameters.
 
     Class Properties:
         These are variables of the class that are available outside. 
         
         *   ``images``: This is the placeholder for images. This needs to be fed in.
-        *   ``dropout_prob``: This is also a placeholder for dropout probability. This needs to be fed in.    
+        *   ``dropout_prob``: This is also a placeholder for dropout probability. 
+              This needs to be fed in.    
         *   ``logits``: Output node of the softmax layer, before softmax
         *   ``inference``: Output node of the softmax layer.
         *   ``predictions``: argmax of the softmax layer. 
@@ -201,12 +333,12 @@ class novice(object):
         *   ``obj``: Is a cumulative objective tensor.
         *   ``cost``: Cost of the back prop error alone.
         *   ``labels``: Placeholder for labels, needs to be fed in.
-        *   ``accuracy``: Tensor for accuracy. 
-
+        *   ``accuracy``: Tensor for accuracy.
     """
     def __init__ (  self,
                     images,
-                    decoder = False,
+                    #decoder = False,
+                    input_params = None,
                     name = 'novice' ):
         """
         Class constructor. Creates the model and allthe connections. 
@@ -214,7 +346,7 @@ class novice(object):
         with tf.variable_scope(name) as scope:
             self.images = images
             self.name = name
-            self.decoder = decoder
+            # self.decoder = decoder
 
             # Unflatten Layer
             images_square = unflatten_layer ( self.images )
@@ -235,8 +367,13 @@ class novice(object):
             with tf.variable_scope(name + 'image_features') as scope:
 
                 # Dot Product Layer 1
+                par = None
+                # Dot Product Layer 1
+                if input_params is not None:
+                    par = input_params[0]                
                 fc1_out, params = dot_product_layer  (  input = dropped_out,
                                                         neurons = NOVICE_D1,
+                                                        params = par,
                                                         name = 'dot_1')
                 process_params(params, name = self.name)
                 d1_params = params
@@ -249,8 +386,13 @@ class novice(object):
                                                 prob = self.dropout_prob,
                                                 name = 'dropout_2')
                 # Dot Product Layer 2
+                par = None
+                # Dot Product Layer 1
+                if input_params is not None:
+                    par = input_params[1]                     
                 fc2_out, params = dot_product_layer  (  input = fc1_out_dropout, 
                                                         neurons = NOVICE_D2,
+                                                        params = par,
                                                         name = 'dot_2')
                 process_params(params, name = self.name)
                 d2_params = params 
@@ -258,30 +400,7 @@ class novice(object):
                 # Dropout Layer 3 
                 fc2_out_dropout = dropout_layer ( input = fc2_out,
                                                 prob = self.dropout_prob,
-                                                name = 'dropout_3')
-
-            if self.decoder is True:
-                with tf.variable_scope(name + 'decoder') as scope:
-                
-                    decoder_1_out, params = dot_product_layer  (  input = fc2_out_dropout, 
-                                                            neurons = NOVICE_D1,
-                                                            params = [tf.transpose(d2_params[0]), None],
-                                                            name = 'decoder_dot_1')
-
-                    process_params([params[1]], name = self.name)
-                    dec_1_out_dropout = dropout_layer ( input = decoder_1_out,
-                                                    prob = self.dropout_prob,
-                                                    name = 'dropout_4')
-
-                    self.decoded, params = dot_product_layer  (  input = dec_1_out_dropout, 
-                                                            neurons = IMAGE_SHAPE,
-                                                            params = [tf.transpose(d1_params[0]), None],
-                                                            name = 'decoder_dot_2')
-                    process_params([params[1]], name = self.name)
-
-                    # Unflatten Layer
-                    decoded_images_square = unflatten_layer ( self.decoded )
-                    visualize_images(decoded_images_square, 'decoded')
+                                               name = 'dropout_3')
 
             # Logits layer
             self.logits, params = dot_product_layer  (  input = fc2_out_dropout,
@@ -322,12 +441,6 @@ class novice(object):
                                                     )                                                
                 tf.add_to_collection( self.name + '_objectives', ce_loss )                                                    
                 tf.summary.scalar('cross_entropy_cost', ce_loss)  
-            
-            if self.decoder is True:
-                with tf.variable_scope( self.name + '_decoder_error') as scope:
-                    decoder_loss =  rmse(self.images, self.decoded)                                         
-                tf.add_to_collection( self.name + '_objectives', decoder_loss )                                                    
-                tf.summary.scalar('cross_entropy_cost', decoder_loss)  
 
             if judgement is not None:
                 self.judgement = judgement
@@ -349,13 +462,13 @@ class novice(object):
             # Change (supply as arguments) parameters here directly in the code.
             if OPTIMIZER == 'sgd':                                                                              
                 self.back_prop = apply_gradient_descent(var_list = tf.get_collection(self.name + '_trainable_params'),
-                                        obj = self.obj )
+                                        obj = self.obj,  learning_rate = LR )
             elif OPTIMIZER == 'rmsprop':
                 self.back_prop = apply_rmsprop(var_list = tf.get_collection(self.name + '_trainable_params') ,
-                                        obj = self.obj)
+                                        obj = self.obj,  learning_rate = LR)
             elif OPTIMIZER == 'adam':
                 self.back_prop = apply_adam (var_list = tf.get_collection( self.name + '_trainable_params') ,
-                                        obj = self.obj )
+                                        obj = self.obj, learning_rate = LR )
             else:
                 raise Error('Invalid entry to optimizer')
 
@@ -575,13 +688,13 @@ class judge(object):
             # Change (supply as arguments) parameters here directly in the code.
             if OPTIMIZER == 'sgd':                                                                              
                 self.back_prop = apply_gradient_descent(var_list = tf.get_collection(self.name + '_trainable_params'),
-                                        obj = self.obj )
+                                        obj = self.obj , learning_rate = LR )
             elif OPTIMIZER == 'rmsprop':
                 self.back_prop = apply_rmsprop(var_list = tf.get_collection(self.name + '_trainable_params') ,
-                                        obj = self.obj)
+                                        obj = self.obj, learning_rate = LR )
             elif OPTIMIZER == 'adam':
                 self.back_prop = apply_adam (var_list = tf.get_collection( self.name + '_trainable_params') ,
-                                        obj = self.obj )
+                                        obj = self.obj, learning_rate = LR )
             else:
                 raise Error('Invalid entry to optimizer')
 

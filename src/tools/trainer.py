@@ -1,9 +1,6 @@
 import tensorflow as tf
 from globals import DROPOUT_PROBABILITY
 
-config = tf.ConfigProto(
-        device_count = {'GPU': 2}
-    )
 
 class trainer(object):
     """
@@ -36,7 +33,7 @@ class trainer(object):
         self.network = network
         self.dataset = dataset 
         if session is None:
-            self.session = tf.InteractiveSession(config=config)        
+            self.session = tf.InteractiveSession()        
         else:
             self.session = session
         if init_vars is True:
@@ -71,7 +68,10 @@ class trainer(object):
         Returns:
             float: accuracy            
         """
-        acc = self.session.run(self.network.accuracy,\
+        if not hasattr(self.network, 'accuracy'):
+            acc = 0.
+        else:
+            acc = self.session.run(self.network.accuracy,\
                                feed_dict = { self.network.images: images,
                                              self.network.labels: labels,
                                              self.network.dropout_prob: 1.0} )
@@ -244,7 +244,10 @@ class poly_trainer(trainer):
         Returns:
             float: accuracy            
         """
-        acc = self.session.run(self.nets[ind].accuracy,\
+        if not hasattr(self.nets[ind], 'accuracy'):
+            acc = 0.
+        else:
+            acc = self.session.run(self.nets[ind].accuracy,\
                                feed_dict = { self.nets[ind].images: images,
                                              self.nets[ind].labels: labels,
                                              self.nets[ind].dropout_prob: 1.0} )

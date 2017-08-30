@@ -34,7 +34,7 @@ def apply_adam (var_list, obj, learning_rate = 0.0001):
                                             var_list = var_list) 
     return back_prop                                                               
 
-def apply_rmsprop( var_list, obj ):
+def apply_rmsprop( var_list, obj, learning_rate = 0.0001 ):
     """
     Sets up the RMS Prop optimizer
 
@@ -48,7 +48,7 @@ def apply_rmsprop( var_list, obj ):
         * decay: What rate should learning rate decay. (Default = ``0.95``). Set ``DECAY``            
     """    
     back_prop = tf.train.RMSPropOptimizer(
-                                        learning_rate = LR,
+                                        learning_rate = learning_rate,
                                         decay = DECAY,
                                         momentum = MOMENTUM,
                                         name = 'rmsprop' ).minimize(loss = obj, \
