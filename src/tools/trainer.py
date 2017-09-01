@@ -377,7 +377,7 @@ class poly_trainer(trainer):
                 self.print_judgement()
                 print(  " Iter " + str(it) +
                         " Objective [" + str(obj[0]) +
-                        " , " + str(obj[1]) + " ]"
+                        ", " + str(obj[1]) + "]"
                         " Test Accuracy " + str(acc) +
                         " Training Accuracy " + str(train_acc)
                          )            

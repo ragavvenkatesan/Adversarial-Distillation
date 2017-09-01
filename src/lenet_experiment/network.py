@@ -78,7 +78,6 @@ class expert(object):
             flattened = flatten_layer(lrn2_out)
 
             # Placeholder probability for dropouts.
-            #self.dropout_prob = tf.placeholder(tf.float32,            
             self.dropout_prob = tf.placeholder_with_default(
                                                 input = tf.constant(1.0, dtype = tf.float32),
                                                 shape = None,
@@ -146,22 +145,27 @@ class expert(object):
                 tf.summary.scalar('cost', self.cost)  
 
             apply_regularizer (name = self.name, var_list = tf.get_collection(
-                                                    self.name + '_regularizer_worthy_params') )
+                                                    self.name + '_regularizer_worthy_params'), 
+                                                    l1_coeff = EXPERT_L1_COEFF,
+                                                    l2_coeff = EXPERT_WEIGHT_DECAY_COEFF )
             self.obj = tf.add_n(tf.get_collection( self.name + '_objectives'), name='objective')
             tf.summary.scalar('obj', self.obj)  
 
 
         with tf.variable_scope(self.name + '_train') as scope:
             # Change (supply as arguments) parameters here directly in the code.
-            if OPTIMIZER == 'sgd':                                                                              
+            if EXPERT_OPTIMIZER == 'sgd':                                                                              
                 self.back_prop = apply_gradient_descent(var_list = tf.get_collection(self.name + '_trainable_params'),
-                                        obj = self.obj,  learning_rate = LR )
-            elif OPTIMIZER == 'rmsprop':
+                                        obj = self.obj,  learning_rate = EXPERT_LR )
+            elif EXPERT_OPTIMIZER == 'adagrad':                                                                              
+                self.back_prop = apply_adagrad(var_list = tf.get_collection(self.name + '_trainable_params'),
+                                        obj = self.obj,  learning_rate = EXPERT_LR )                                         
+            elif EXPERT_OPTIMIZER == 'rmsprop':
                 self.back_prop = apply_rmsprop(var_list = tf.get_collection(self.name + '_trainable_params') ,
-                                        obj = self.obj,  learning_rate = LR)
-            elif OPTIMIZER == 'adam':
+                                        obj = self.obj,  learning_rate = EXPERT_LR)
+            elif EXPERT_OPTIMIZER == 'adam':
                 self.back_prop = apply_adam (var_list = tf.get_collection( self.name + '_trainable_params') ,
-                                        obj = self.obj, learning_rate = LR )
+                                        obj = self.obj, learning_rate = EXPERT_LR )
             else:
                 raise Error('Invalid entry to optimizer')
 
@@ -288,21 +292,26 @@ class autoencoder(object):
                 tf.add_to_collection( self.name + '_objectives', self.cost )                                                    
                 tf.summary.scalar('combined_cost', self.cost)
             apply_regularizer (name = self.name, var_list = tf.get_collection(
-                                                    self.name + '_regularizer_worthy_params') )
+                                                    self.name + '_regularizer_worthy_params'), 
+                                                    l1_coeff = AUTOENCODER_L1_COEFF,
+                                                    l2_coeff = AUTOENCODER_WEIGHT_DECAY_COEFF  )
             self.obj = tf.add_n(tf.get_collection( self.name + '_objectives'), name='objective')
             tf.summary.scalar('total_objective', self.obj)
 
         with tf.variable_scope(self.name + '_train') as scope:
             # Change (supply as arguments) parameters here directly in the code.
-            if OPTIMIZER == 'sgd':                                                                              
+            if AUTOENCODER_OPTIMIZER == 'sgd':                                                                              
                 self.back_prop = apply_gradient_descent(var_list = tf.get_collection(self.name + '_trainable_params'),
-                                        obj = self.obj,  learning_rate = LR )
-            elif OPTIMIZER == 'rmsprop':
+                                        obj = self.obj,  learning_rate = AUTOENCODER_LR )
+            elif AUTOENCODER_OPTIMIZER == 'adagrad':                                                                              
+                self.back_prop = apply_adagrad(var_list = tf.get_collection(self.name + '_trainable_params'),
+                                        obj = self.obj,  learning_rate = AUTOENCODER_LR )                                        
+            elif AUTOENCODER_OPTIMIZER == 'rmsprop':
                 self.back_prop = apply_rmsprop(var_list = tf.get_collection(self.name + '_trainable_params') ,
-                                        obj = self.obj,  learning_rate = LR)
-            elif OPTIMIZER == 'adam':
+                                        obj = self.obj,  learning_rate = AUTOENCODER_LR)
+            elif AUTOENCODER_OPTIMIZER == 'adam':
                 self.back_prop = apply_adam (var_list = tf.get_collection( self.name + '_trainable_params') ,
-                                        obj = self.obj,  learning_rate = LR )
+                                        obj = self.obj,  learning_rate = AUTOENCODER_LR )
             else:
                 raise Error('Invalid entry to optimizer')
 
@@ -454,21 +463,26 @@ class novice(object):
             
                 tf.summary.scalar('combined_cost', self.cost)
             apply_regularizer (name = self.name, var_list = tf.get_collection(
-                                                    self.name + '_regularizer_worthy_params') )
+                                                    self.name + '_regularizer_worthy_params'), 
+                                                    l1_coeff = JUDGED_L1_COEFF,
+                                                    l2_coeff = JUDGED_WEIGHT_DECAY_COEFF  )
             self.obj = tf.add_n(tf.get_collection( self.name + '_objectives'), name='objective')
             tf.summary.scalar('total_objective', self.obj)
 
         with tf.variable_scope(self.name + '_train') as scope:
             # Change (supply as arguments) parameters here directly in the code.
-            if OPTIMIZER == 'sgd':                                                                              
+            if JUDGED_OPTIMIZER == 'sgd':                                                                              
                 self.back_prop = apply_gradient_descent(var_list = tf.get_collection(self.name + '_trainable_params'),
-                                        obj = self.obj,  learning_rate = LR )
-            elif OPTIMIZER == 'rmsprop':
+                                        obj = self.obj,  learning_rate = JUDGED_LR )
+            elif JUDGED_OPTIMIZER == 'adagrad':                                                                              
+                self.back_prop = apply_adagrad(var_list = tf.get_collection(self.name + '_trainable_params'),
+                                        obj = self.obj,  learning_rate = JUDGED_LR )                                         
+            elif JUDGED_OPTIMIZER == 'rmsprop':
                 self.back_prop = apply_rmsprop(var_list = tf.get_collection(self.name + '_trainable_params') ,
-                                        obj = self.obj,  learning_rate = LR)
-            elif OPTIMIZER == 'adam':
+                                        obj = self.obj,  learning_rate = JUDGED_LR)
+            elif JUDGED_OPTIMIZER == 'adam':
                 self.back_prop = apply_adam (var_list = tf.get_collection( self.name + '_trainable_params') ,
-                                        obj = self.obj, learning_rate = LR )
+                                        obj = self.obj, learning_rate = JUDGED_LR )
             else:
                 raise Error('Invalid entry to optimizer')
 
@@ -590,21 +604,26 @@ class judge(object):
                                         
             # Embedding layers
             expert_embed, params = dot_product_layer (input = expert,   
-                                              neurons = EMBED,
-                                              name = 'expert_embed' )
+                                              neurons = INFERENCE_EMBED,
+                                              name = 'expert_embed_inference' )
             novice_embed, params = dot_product_layer (input = novice,
-                                              neurons = EMBED,
+                                              neurons = INFERENCE_EMBED,
                                               params = params,
-                                              name = 'novice_embed' )
+                                              name = 'novice_embed_inference' )
             process_params ( params, name = self.name )
-            
+
+            image_embed, params = dot_product_layer (input = fc2_out,   
+                                              neurons = IMAGE_EMBED,
+                                              name = 'embed_image' )
+            process_params ( params, name = self.name )
+
             #Judgement Layers
             # expert_embed = expert
             # novice_embed = novice
             # fc2_out_dropout = self.images
 
-            merged_expert = tf.concat([expert_embed, fc2_out_dropout], 1)
-            merged_novice = tf.concat([novice_embed, fc2_out_dropout], 1)            
+            merged_expert = tf.concat([expert_embed, image_embed], 1)
+            merged_novice = tf.concat([novice_embed, image_embed], 1)            
 
             # Merged Expert Dropout Layer 1 
             merged_expert_dropout_1 = dropout_layer ( input = merged_expert,
@@ -680,21 +699,26 @@ class judge(object):
             tf.add_to_collection( self.name + '_objectives', self.cost )                                                    
             tf.summary.scalar('cost', self.cost)
             apply_regularizer (name = self.name, var_list = tf.get_collection(
-                                                    self.name + '_regularizer_worthy_params') )
+                                                    self.name + '_regularizer_worthy_params'), 
+                                                    l1_coeff = JUDGED_L1_COEFF,
+                                                    l2_coeff = JUDGED_WEIGHT_DECAY_COEFF  )
             self.obj = tf.add_n(tf.get_collection( self.name + '_objectives'), name='objective')
             tf.summary.scalar('total_objective', self.obj)
 
         with tf.variable_scope(self.name + '_train') as scope:
             # Change (supply as arguments) parameters here directly in the code.
-            if OPTIMIZER == 'sgd':                                                                              
+            if JUDGED_OPTIMIZER == 'sgd':                                                                              
                 self.back_prop = apply_gradient_descent(var_list = tf.get_collection(self.name + '_trainable_params'),
-                                        obj = self.obj , learning_rate = LR )
-            elif OPTIMIZER == 'rmsprop':
+                                        obj = self.obj , learning_rate = JUDGED_LR )
+            elif JUDGED_OPTIMIZER == 'adagrad':                                                                              
+                self.back_prop = apply_adagrad(var_list = tf.get_collection(self.name + '_trainable_params'),
+                                        obj = self.obj,  learning_rate = JUDGED_LR )                                         
+            elif JUDGED_OPTIMIZER == 'rmsprop':
                 self.back_prop = apply_rmsprop(var_list = tf.get_collection(self.name + '_trainable_params') ,
-                                        obj = self.obj, learning_rate = LR )
-            elif OPTIMIZER == 'adam':
+                                        obj = self.obj, learning_rate = JUDGED_LR )
+            elif JUDGED_OPTIMIZER == 'adam':
                 self.back_prop = apply_adam (var_list = tf.get_collection( self.name + '_trainable_params') ,
-                                        obj = self.obj, learning_rate = LR )
+                                        obj = self.obj, learning_rate = JUDGED_LR )
             else:
                 raise Error('Invalid entry to optimizer')
 

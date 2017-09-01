@@ -12,7 +12,7 @@ if __name__ == '__main__':
     dataset = mnist()
     # dataset = fashion_mnist()
     ################ Expert ################
-    print (" \n\n Expert Assembly \n\n")
+    # print (" \n\n Expert Assembly \n\n")
     expert_net = expert(images = dataset.images)     
     expert_net.cook(    labels = dataset.labels)
     expert_bp = trainer(expert_net, dataset.feed,
@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     ################ Indpendent Novice ################
     """
-    print (" \n\n Independent Novice Assembly \n\n")
+    # print (" \n\n Independent Novice Assembly \n\n")
     indep_net = novice(images = dataset.images, 
                     name = 'novice_independent')  
     indep_net.cook( labels = dataset.labels )
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     
     ################ Adversarial Distillation ###########
     
-    print (" \n\n Judged Novice Without Labels Assembly \n\n")
+    # print (" \n\n Judged Novice Without Labels Assembly \n\n")
     ae_net = autoencoder ( images = dataset.images,
                             name = 'autoencoder')
                         
@@ -69,8 +69,8 @@ if __name__ == '__main__':
     ####### Training ################
     print (" \n\n Expert Training \n\n")  
     expert_bp.train(    iter = EXPERT_ITER, 
-                        update_after_iter = UPDATE_AFTER_ITER,    
-                        mini_batch_size = MINI_BATCH_SIZE, 
+                        update_after_iter = EXPERT_UPDATE_AFTER_ITER,    
+                        mini_batch_size = EXPERT_MINI_BATCH_SIZE, 
                         summarize = True   )
 
     """
@@ -80,18 +80,18 @@ if __name__ == '__main__':
                     update_after_iter = UPDATE_AFTER_ITER,
                     summarize = True)   
     
-
+    """
     print (" \n\n Autoencoder Training \n\n")  
     ae_net_bp.train(    iter = EXPERT_ITER, 
-                        update_after_iter = UPDATE_AFTER_ITER ,    
-                        mini_batch_size = MINI_BATCH_SIZE, 
+                        update_after_iter = AUTOENCODER_UPDATE_AFTER_ITER ,    
+                        mini_batch_size = AUTOENCODER_MINI_BATCH_SIZE, 
                         summarize = True   )
-    """
+    
     print (" \n\nJudged Novice Without Labels Mentored Training \n\n")    
     judged_mentoring.train( iter= JUDGED_ITER ,
                     k = K, 
                     r = R,
-                    update_after_iter = UPDATE_AFTER_ITER,
-                    mini_batch_size = MINI_BATCH_SIZE,  
+                    update_after_iter = AUTOENCODER_UPDATE_AFTER_ITER,
+                    mini_batch_size = AUTOENCODER_MINI_BATCH_SIZE,  
                     expert = expert_net.temperature_softmax,   
                     summarize = True   )
